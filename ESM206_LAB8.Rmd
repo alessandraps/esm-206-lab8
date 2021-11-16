@@ -1,0 +1,133 @@
+---
+title: "esm206_lab8"
+author: "Alessandra Puig-Santana"
+date: "11/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(modelsummary)
+library(corrplot)
+library(broom)
+library(here)
+```
+
+### Read in data
+```{r}
+homes <- read_csv(here("slo_homes.csv"))
+```
+
+### Create a subset with 4 cities 
+
+task: create a subset (called home_subset) that only contains observations where the city is:
+- "San Luis Obispo"
+- "Atascadero"
+- "Arroyo Grande"
+- "Santa Maria-Orcutt"
+
+```{r}
+home_subset <- homes %>%
+  filter(City %in% c("San Luis Obispo", "Atascadero", "Arroyo Grande", "Santa Maria-Orcutt"))
+
+# %in% doesn't look by order, it just includes anything that is included in the vector
+# create vector to filter
+# unique(homes_subset$City) in the console to make sure that your code is correct
+```
+
+### A little exploration
+task: create a summary table that has the mean and standard deviation of home prices grouped by city and sale status
+```{r, include = FALSE, eval = FALSE}
+homes_subset_table <- home_subset %>%
+  group_by(City, Status) %>%
+  summarize(mean_price = mean(Price),
+          sd_price = sd(Price))
+
+# eval = FALSE means that this code chunk will not be "evaluated" or aka ran
+```
+
+Task: explore the relationship between square footage and home price (from homes_subset) in a scatterplot 
+```{r}
+ggplot(data = home_subset, aes(x = SqFt,
+                                y = Price)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+### Try a few linear models 
+
+Use multiple linear regression to investigate relationships between several predictor variables and home Price.
+
+task: create two different permutations of this model:
+(1) Price ~ City, Bedrooms, Bathrooms, SqFt, Status (lm1)
+(2) Price ~ City, SqFt, Stats (lm2)
+(3) Try another one (lm3)
+
+```{r}
+lm1 <- lm(Price ~ City + Bedrooms + Bathrooms + SqFt + Status, 
+          data = home_subset)
+
+# summary(lm1) in console to view 
+# City reference level: Arroyo Grande 
+# On Average, homes in Santa Maria-Orcutt would sell for 260860 dollars less than homes in Arroyo Grande, if all things were to remain the same
+# There is a problem: co-linearity 
+# 54% percent of variance in sale price is captured in this model (r-squared value)
+
+lm2 <- lm(Price ~ City + SqFt + Status, data = home_subset)
+
+lm3 <- lm(Price ~ SqFt, data = home_subset)
+
+# If I wanted San Luis Obispo to be the reference level:
+# Use fct_relevel to specify a new refence level
+# If you had a control level, then you will choose that as your reference level
+
+new_homes_subset <- home_subset %>%
+  mutate(City = fct_relevel(City, "San Luis Obispo"))
+
+#This will use SLO as the reference level for city. 
+lm_slo <- lm(Price ~ City + SqFt, data = new_homes_subset)
+
+```
+
+### Explore correlations between our quanititative variables
+task: make a subset called homes_quant (starting from home_subset) that only contains the variables from Price through SqFt
+```{r}
+homes_quant <- home_subset %>%
+  select(Price:SqFt) #colon allows you to select a range of columns
+
+homes_cor <- cor(homes_quant)
+
+corrplot(homes_cor, method = "ellipse") #Visualize correlation
+```
+
+### Compare AIC values
+```{r}
+AIC(lm1) 
+AIC(lm2)
+
+# Lower AIC = better model. the added complexity is not much of a sacrifice 
+
+```
+
+### Use modelsummary() to return multiple model outputs 
+```{r}
+modelsummary(list(lm1, lm2, lm3))
+```
+
+### Check out the diagnostic plots for lm1
+```{r}
+plot(lm1)
+```
+
+### Use broom::augment() to return the predictions for existing observations
+```{r}
+home_predictions <- augment(lm1)
+
+# Make a histogrm of the residuals from this model (lm1)
+
+ggplot(data = home_predictions, aes(.resid)) +
+  geom_histogram(bins = 20) # falls pretty normally distributed of residuals 
+```
+
+
