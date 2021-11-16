@@ -130,4 +130,4 @@ ggplot(data = home_predictions, aes(.resid)) +
   geom_histogram(bins = 20) # falls pretty normally distributed of residuals 
 ```
 
-
+# BRANCHES ARE AWESOME
